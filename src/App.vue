@@ -14,20 +14,22 @@ const normalizedRent = computed(() => {
 </script>
 
 <template>
-  <label>
-    <span>Monthly Rent:</span>
-    <input v-model.number="monthlyRent" type="number" />
-  </label>
-  <label>
-    <span>Reikin:</span>
-    <input v-model.number="reikin" type="number" />
-  </label>
-  <label>
-    <span>Length of Stay (months):</span>
-    <input v-model.number="lengthOfStayInMonths" type="number" />
-  </label>
+  <UApp>
+    <label>
+      <span>Monthly Rent:</span>
+      <input v-model.number="monthlyRent" type="number" />
+    </label>
+    <label>
+      <span>Reikin:</span>
+      <input v-model.number="reikin" type="number" />
+    </label>
+    <label>
+      <span>Length of Stay (months):</span>
+      <input v-model.number="lengthOfStayInMonths" type="number" />
+    </label>
 
-  <p>Normalized Rent: {{ normalizedRent }}</p>
+    <p>Normalized Rent: {{ normalizedRent }}</p>
+  </UApp>
 </template>
 
 <style scoped></style>
