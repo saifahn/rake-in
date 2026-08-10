@@ -1,79 +1,86 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, watch } from 'vue'
+import { makeProperty, type Mode, type Property } from './cost'
+import { loadState, saveState } from './storage'
+import PropertyCard from './components/PropertyCard.vue'
+import ComparisonTable from './components/ComparisonTable.vue'
+import CrossoverChart from './components/CrossoverChart.vue'
 
-const monthlyRent = ref(0)
-const reikin = ref(0)
-const lengthOfStayInMonths = ref(0)
+const persisted = loadState()
 
-const hasResult = computed(() => lengthOfStayInMonths.value > 0)
+const properties = ref<Property[]>(
+  persisted?.properties.length
+    ? persisted.properties
+    : [makeProperty('Property A'), makeProperty('Property B'), makeProperty('Property C')],
+)
+const mode = ref<Mode>(persisted?.mode ?? 'prorate')
 
-const normalizedRent = computed(() => {
-  if (!hasResult.value) return 0
-  return (
-    (monthlyRent.value * lengthOfStayInMonths.value + reikin.value) / lengthOfStayInMonths.value
-  )
-})
+watch(
+  [properties, mode],
+  () => {
+    saveState({ properties: properties.value, mode: mode.value })
+  },
+  { deep: true },
+)
 
-const jpy = new Intl.NumberFormat('ja-JP', {
-  style: 'currency',
-  currency: 'JPY',
-  maximumFractionDigits: 0,
-})
+function addProperty() {
+  properties.value.push(makeProperty(`Property ${String.fromCharCode(65 + properties.value.length)}`))
+}
 
-const formattedRent = computed(() => jpy.format(Math.round(normalizedRent.value)))
+function removeProperty(id: string) {
+  properties.value = properties.value.filter((p) => p.id !== id)
+}
+
+function duplicateProperty(id: string) {
+  const source = properties.value.find((p) => p.id === id)
+  if (!source) return
+  const copy: Property = structuredClone(source)
+  copy.id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  copy.name = `${source.name} (copy)`
+  const index = properties.value.indexOf(source)
+  properties.value.splice(index + 1, 0, copy)
+}
+
+const modeItems = [
+  { label: 'Prorate (smooth)', value: 'prorate' },
+  { label: 'Step (as paid)', value: 'step' },
+]
 </script>
 
 <template>
   <UApp>
-    <main class="min-h-screen flex items-center justify-center p-4 bg-default">
-      <UCard class="w-full max-w-md">
-        <template #header>
-          <h1 class="text-xl font-semibold text-highlighted">Rake-In</h1>
-          <p class="text-sm text-muted mt-1">
-            Normalize Japanese rent by spreading reikin over your stay.
-          </p>
-        </template>
-
-        <div class="space-y-4">
-          <UFormField label="Monthly Rent" name="monthlyRent">
-            <UInputNumber
-              v-model="monthlyRent"
-              :min="0"
-              :step="1000"
-              class="w-full"
-              :format-options="{ style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }"
-            />
+    <main class="min-h-screen p-4 md:p-8 bg-default">
+      <div class="max-w-5xl mx-auto space-y-6">
+        <header class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 class="text-2xl font-semibold text-highlighted">Rake-In</h1>
+            <p class="text-sm text-muted mt-1">
+              Compare the real cost of rental properties — rent, key money, and recurring fees, normalized over time.
+            </p>
+          </div>
+          <UFormField label="Fee treatment" class="w-56">
+            <USelect v-model="mode" :items="modeItems" value-key="value" class="w-full" />
           </UFormField>
+        </header>
 
-          <UFormField label="Reikin (礼金)" name="reikin">
-            <UInputNumber
-              v-model="reikin"
-              :min="0"
-              :step="10000"
-              class="w-full"
-              :format-options="{ style: 'currency', currency: 'JPY', maximumFractionDigits: 0 }"
-            />
-          </UFormField>
+        <ComparisonTable :properties="properties" :mode="mode" />
+        <CrossoverChart :properties="properties" :mode="mode" />
 
-          <UFormField label="Length of Stay" name="lengthOfStayInMonths" hint="months">
-            <UInputNumber
-              v-model="lengthOfStayInMonths"
-              :min="0"
-              :step="1"
-              class="w-full"
-            />
-          </UFormField>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <PropertyCard
+            v-for="(property, index) in properties"
+            :key="property.id"
+            v-model="properties[index]!"
+            :removable="properties.length > 1"
+            @remove="removeProperty(property.id)"
+            @duplicate="duplicateProperty(property.id)"
+          />
         </div>
 
-        <template #footer>
-          <div class="flex items-baseline justify-between">
-            <span class="text-sm text-muted">Normalized monthly rent</span>
-            <span class="text-2xl font-semibold tabular-nums text-highlighted">
-              {{ hasResult ? formattedRent : '—' }}
-            </span>
-          </div>
-        </template>
-      </UCard>
+        <UButton icon="i-lucide-plus" color="neutral" variant="outline" @click="addProperty">
+          Add property
+        </UButton>
+      </div>
     </main>
   </UApp>
 </template>
